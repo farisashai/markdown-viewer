@@ -2,9 +2,36 @@
 
 .page {
   background-color: vars.$white;
+
   display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr 1fr;
   height: 100vh;
   justify-items: center;
+  padding: 2rem;
   position: fixed;
   width: 100vw;
+
+  .editor {
+    background-color: #eee;
+    border: 2px solid #444;
+    border-radius: 1rem;
+    height: 100%;
+    padding: 1rem;
+    width: 100%;
+  }
+
+  .preview {
+    background-color: #eee;
+    border: 2px solid #444;
+    border-radius: 1rem;
+    height: 100%;
+    padding: 1rem;
+    width: 100%;
+
+    hr {
+      border: 1px solid #ccc;
+      width: 80%;
+    }
+  }
 }
