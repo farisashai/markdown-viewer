@@ -1,5 +1,7 @@
 export type Styles = {
+  container: string;
   editor: string;
+  header: string;
   page: string;
   preview: string;
 };
