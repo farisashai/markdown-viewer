@@ -4,18 +4,26 @@ import '@/styles/globals.scss';
 import styles from '@/styles/pages/Home.module.scss';
 import { useEffect, useMemo, useState } from 'react';
 
-const trimRight = (array: string[]) => {
-  return array.reduceRight<string[]>((acc, curr) => {
-    if (!acc?.length && curr === '') return [];
-    return [curr, ...acc];
-  }, []);
-};
+/**
+ * Trim trailing empty lines from content
+ * @param array Array of lines
+ * @returns
+ */
+const collapseNewlines = (value: string) => value.replace(/\n{3,}/g, '\n\n').split('\n');
 
 const inlineRegexMap = {
   bold: /[*]{2}(?<text>.*?)[*]{2}/,
   italics: /[*]{1}(?<text>.*?)[*]{1}/,
   link: /\[(?<text>.*?)\]\((?<link>.*?)\)/,
   code: /`(?<text>.*?)`/,
+};
+
+const blockRegexMap = {
+  h1: /^[#]{1}\s(?<text>.*?)$/,
+  h2: /^[#]{2}\s(?<text>.*?)$/,
+  h3: /^[#]{3}\s(?<text>.*?)$/,
+  hr: /^[-]{3}$/,
+  blockquote: /^>\s(?<text>.*?)$/,
 };
 
 const InlineMarkdown = ({ value }: { value?: string }) => {
@@ -67,17 +75,9 @@ const InlineMarkdown = ({ value }: { value?: string }) => {
   return <span>{value}</span>;
 };
 
-const regexMap = {
-  h1: /^[#]{1}\s(?<text>.*?)$/,
-  h2: /^[#]{2}\s(?<text>.*?)$/,
-  h3: /^[#]{3}\s(?<text>.*?)$/,
-  hr: /^[-]{3}$/,
-  blockquote: /^>\s(?<text>.*?)$/,
-};
-
-const MarkdownToBlockJSX = ({ value }: { value: string }) => {
+const BlockMarkdown = ({ value }: { value: string }) => {
   // eslint-disable-next-line no-restricted-syntax
-  for (const [key, pattern] of Object.entries(regexMap)) {
+  for (const [key, pattern] of Object.entries(blockRegexMap)) {
     const match = pattern.exec(value);
 
     if (match) {
@@ -112,6 +112,9 @@ const MarkdownToBlockJSX = ({ value }: { value: string }) => {
     }
   }
 
+  // Show empty as newlines
+  if (value === '') return <br />;
+
   return (
     <p>
       <InlineMarkdown value={value} />
@@ -119,18 +122,96 @@ const MarkdownToBlockJSX = ({ value }: { value: string }) => {
   );
 };
 
+// Perform block and inline element regex matching to find the raw displayed text element
+const getRawText = (value: string) => {
+  // eslint-disable-next-line no-restricted-syntax
+  for (const [key, pattern] of Object.entries(blockRegexMap)) {
+    const match = pattern.exec(value);
+
+    if (match) {
+      const { groups } = match;
+
+      switch (key) {
+        case 'h1':
+          return getRawText(groups?.text);
+        case 'h2':
+          return getRawText(groups?.text);
+        case 'h3':
+          return getRawText(groups?.text);
+        case 'hr':
+          return null;
+        default:
+      }
+    }
+  }
+
+  // eslint-disable-next-line no-restricted-syntax
+  for (const [key, pattern] of Object.entries(inlineRegexMap)) {
+    const match = pattern.exec(value);
+
+    if (match) {
+      const { groups } = match;
+      const before = value.slice(0, match.index);
+      const after = value.slice(match.index + match[0].length);
+
+      let replacement = null;
+
+      switch (key) {
+        case 'bold':
+          replacement = groups?.text;
+          break;
+        case 'italics':
+          replacement = groups?.text;
+          break;
+        case 'link':
+          replacement = groups?.text;
+          break;
+        case 'code':
+          replacement = groups?.text;
+          break;
+        default:
+      }
+
+      if (replacement) {
+        return `${getRawText(before) ?? ''}${replacement}${getRawText(after) ?? ''}`;
+      }
+    }
+  }
+
+  return value;
+};
+
+const sampleText = `# Hello, World!
+## Built by Faris Ashai
+### February 15, 2025
+
+
+This is a custom Markdown processor and previewer build in **Next.js with SCSS and TypeScript.**
+
+
+The source code is public on [my Github](https://github.com/farisashai/markdown-viewer).
+It is written using a very simple implementation of lexical tokenization and *parsing splitting text line by line and first parsing out blocks elements and then inline elements recursively.*
+
+This demo text is showing all of the Markdown syntax that is currently supported.
+
+To run this project locally, you can run \`git clone https://github.com/farisashai/markdown-viewer.git\` followed by \`yarn install && yarn dev\` in the repository folder.
+`;
+
 export default function Home() {
   const [rawInput, setRawInput] = useState<string>('');
   const parsedInput = useMemo(
-    () => (rawInput?.length ? trimRight(rawInput?.split('\n')) : []),
+    () => (rawInput?.length ? collapseNewlines(rawInput) : []),
     [rawInput]
   );
 
+  // Populate input textarea from localStorage on initial render
   useEffect(() => {
     const storedText = localStorage.getItem('rawText');
     if (storedText) setRawInput(storedText);
+    else setRawInput(sampleText);
   }, []);
 
+  // Update localStorage on input value change
   useEffect(() => {
     localStorage.setItem('rawText', rawInput);
   }, [rawInput]);
@@ -146,11 +227,11 @@ export default function Home() {
         />
       </div>
       <div className={styles.container}>
-        <div className={styles.header}>test</div>
+        <div className={styles.header}>{getRawText(parsedInput.find(value => value) ?? '')}</div>
         <div className={styles.preview}>
           {parsedInput.map((value, index) => (
             // eslint-disable-next-line react/no-array-index-key
-            <MarkdownToBlockJSX value={value} key={`${value}-${index}`} />
+            <BlockMarkdown value={value} key={`${value}-${index}`} />
           ))}
         </div>
       </div>
