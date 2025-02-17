@@ -3,6 +3,8 @@
 import '@/styles/globals.scss';
 import styles from '@/styles/pages/Home.module.scss';
 import { useEffect, useMemo, useState } from 'react';
+import { FaCode } from 'react-icons/fa';
+import { VscOpenPreview } from 'react-icons/vsc';
 
 /**
  * Trim trailing empty lines from content
@@ -123,7 +125,7 @@ const BlockMarkdown = ({ value }: { value: string }) => {
 };
 
 // Perform block and inline element regex matching to find the raw displayed text element
-const getRawText = (value: string) => {
+const getRawText = (value: string): string | null => {
   // eslint-disable-next-line no-restricted-syntax
   for (const [key, pattern] of Object.entries(blockRegexMap)) {
     const match = pattern.exec(value);
@@ -133,11 +135,11 @@ const getRawText = (value: string) => {
 
       switch (key) {
         case 'h1':
-          return getRawText(groups?.text);
+          return getRawText(groups?.text ?? '');
         case 'h2':
-          return getRawText(groups?.text);
+          return getRawText(groups?.text ?? '');
         case 'h3':
-          return getRawText(groups?.text);
+          return getRawText(groups?.text ?? '');
         case 'hr':
           return null;
         default:
@@ -204,11 +206,22 @@ export default function Home() {
     [rawInput]
   );
 
+  const [mode, setMode] = useState<'code' | 'preview'>('code');
+
   // Populate input textarea from localStorage on initial render
   useEffect(() => {
     const storedText = localStorage.getItem('rawText');
     if (storedText) setRawInput(storedText);
     else setRawInput(sampleText);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (document.body.clientWidth > 768) setMode('code');
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Update localStorage on input value change
@@ -217,22 +230,65 @@ export default function Home() {
   }, [rawInput]);
 
   return (
-    <div className={styles.page}>
-      <div className={styles.container}>
-        <div className={styles.header}>Lines: {parsedInput.length}</div>
-        <textarea
-          className={styles.editor}
-          value={rawInput}
-          onChange={e => setRawInput(e.target.value)}
-        />
-      </div>
-      <div className={styles.container}>
-        <div className={styles.header}>{getRawText(parsedInput.find(value => value) ?? '')}</div>
-        <div className={styles.preview}>
-          {parsedInput.map((value, index) => (
-            // eslint-disable-next-line react/no-array-index-key
-            <BlockMarkdown value={value} key={`${value}-${index}`} />
-          ))}
+    <div className={styles.wrapper}>
+      <h1>Markdown Viewer</h1>
+      <div className={styles.page}>
+        <div className={styles.container} data-active={mode === 'code'}>
+          <div className={styles.header}>
+            <span>Lines: {parsedInput.length}</span>
+            <div className={styles.toggle}>
+              <button
+                className={styles.toggleBtn}
+                type="button"
+                data-active={mode === 'code'}
+                onClick={() => setMode('code')}
+              >
+                Editor <FaCode />
+              </button>
+              <button
+                className={styles.toggleBtn}
+                type="button"
+                data-active={mode === 'preview'}
+                onClick={() => setMode('preview')}
+              >
+                Preview <VscOpenPreview />
+              </button>
+            </div>
+          </div>
+          <textarea
+            className={styles.editor}
+            value={rawInput}
+            onChange={e => setRawInput(e.target.value)}
+          />
+        </div>
+        <div className={styles.container} data-active={mode === 'preview'}>
+          <div className={styles.header}>
+            <span>{getRawText(parsedInput.find(value => value) ?? '')}</span>
+            <div className={styles.toggle}>
+              <button
+                className={styles.toggleBtn}
+                type="button"
+                data-active={mode === 'code'}
+                onClick={() => setMode('code')}
+              >
+                Editor <FaCode />
+              </button>
+              <button
+                className={styles.toggleBtn}
+                type="button"
+                data-active={mode === 'preview'}
+                onClick={() => setMode('preview')}
+              >
+                Preview <VscOpenPreview />
+              </button>
+            </div>
+          </div>
+          <div className={styles.preview}>
+            {parsedInput.map((value, index) => (
+              // eslint-disable-next-line react/no-array-index-key
+              <BlockMarkdown value={value} key={`${value}-${index}`} />
+            ))}
+          </div>
         </div>
       </div>
     </div>
